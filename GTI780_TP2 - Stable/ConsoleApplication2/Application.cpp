@@ -241,15 +241,41 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 	//Filtre Gaussien
 	cv::Mat dst;
 
-	//dilate
-	//errode
-	//cv::GaussianBlur(src, dst, cv::Size(9, 9), 3, 3);
-	IplImage* img = &src.operator IplImage;
-	cvDilate(img, img, 0, 1);
+	uchar fillValue = 128;
+	//cv::floodFill(src, dst, cv::Point(1, 1), cv::Scalar(255), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
+	
+	cv::dilate(src, dst, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
+	//cv::erode(src, dst, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
+	cv::GaussianBlur(dst, dst, cv::Size(15, 15), 5, 5);	
 
-	cv::Mat mResult = dst;	// Change this line so mResult is the result of your filtering
+	cv::Mat image_thresh;
+	// Tout ce qui est plus que grand que 0 est égal à 255, sinon = 0
+	cv::threshold(dst, image_thresh, 0, 255, cv::THRESH_BINARY);
+	cv::Mat mask;
+	image_thresh.copyTo(mask);
 
-	return mResult;
+	cv::Point seed(0, 0);
+	cv::floodFill(dst, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4);
+	//cv::floodFill(dst, mask, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 | (fillValue << 8));
+
+	/*for (int i = 0; i < 300; i++) {
+		int d = mask.at<char>(0, i);
+	
+		if (mask.at<char>(0, i) == 0) {
+			//cv::floodFill(dst, cv::Point(i, 0), 255, 0, 10, 10);
+			cv::floodFill(mask, cv::Point(i, 0), cv::Scalar(255, 255, 0));
+			//cv::floodFill(mask, dst, cv::Point(i, 0), cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
+		}
+		if (mask.at<char>(mask.rows - 1, i) == 0) {
+			//cv::floodFill(dst, cv::Point(i, mask.rows - 1), 255, 0, 10, 10);
+			cv::floodFill(mask, cv::Point(i, mask.rows - 1), cv::Scalar(255, 255, 0));
+			//cv::floodFill(mask, dst, cv::Point(i, mask.rows - 1), cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
+		}
+	}*/
+
+	//cv::floodFill(src, cv::Point(0, 0), cv::Scalar(255, 255, 0));
+
+	return dst;
 }
 
 // Display two openCV Images side by side
