@@ -239,42 +239,80 @@ void Application::ProcessFrame(cv::Mat colorMat, int nColorWidth, int nColorHeig
 cv::Mat Application::ApplyFiltering(cv::Mat src)
 {
 	//Filtre Gaussien
-	cv::Mat dst;
+	cv::Mat dst(src.rows, src.cols, CV_8UC1);	//conversion en 8bits unsigned 1 channel
+	cv::cvtColor(src, dst, cv::COLOR_RGB2GRAY);	//conversion en tons de gris
 
-	uchar fillValue = 128;
-	//cv::floodFill(src, dst, cv::Point(1, 1), cv::Scalar(255), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
-	
-	cv::dilate(src, dst, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
+	uchar fillValue = 255;
+
+	cv::dilate(dst, dst, cv::Mat(), cv::Point(-1, -1), 5, 1, 1);
 	//cv::erode(src, dst, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
-	cv::GaussianBlur(dst, dst, cv::Size(15, 15), 5, 5);	
+	cv::GaussianBlur(dst, dst, cv::Size(15, 15), 5, 5);
 
-	cv::Mat image_thresh;
-	// Tout ce qui est plus que grand que 0 est égal à 255, sinon = 0
+	cv::Mat image_thresh(dst.rows, dst.cols, CV_8UC1);
+	// Tout ce qui est plus que grand que 0 (tout ce qui n'est pas noir) est égal à 0, sinon = 255
 	cv::threshold(dst, image_thresh, 0, 255, cv::THRESH_BINARY);
 	cv::Mat mask;
 	image_thresh.copyTo(mask);
 
-	cv::Point seed(0, 0);
-	cv::floodFill(dst, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4);
-	//cv::floodFill(dst, mask, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 | (fillValue << 8));
+	// Belle bordure
+	cv::copyMakeBorder(mask, mask, 1, 1, 1, 1, cv::BORDER_REPLICATE);
+	//cv::floodFill(dst, mask, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(0), cv::Scalar(0), 8 | (fillValue << 8));
 
-	/*for (int i = 0; i < 300; i++) {
-		int d = mask.at<char>(0, i);
+	// inverser mask
+	// while
+	// find non zeros
+	// inverser mask (pour floodfiller des espaces noirs, blancs impossible)
+	// floodfill : cv::floodFill(dst, mask, seed, cv::Scalar(255, 255, 0), 0, cv::Scalar(0), cv::Scalar(0), 8 | (fillValue << 8));
+	// inverser mask
+	// find non zeros
+
+	cv::bitwise_not(mask, mask);	//noir
+	int n = 0;
+	//std::vector<cv::Point2i> nombre_non_zero;
+	cv::Rect roi = cv::Rect(1, 1, mask.cols - 2, mask.rows - 2);
+	cv::Mat nombre_non_zero;
+	cv::findNonZero(mask(roi), nombre_non_zero);	// trouve les tâches blanches, blanc
+	n = cv::countNonZero(mask(roi));
+
+	while (n > 0) {
+		cv::Point seed(nombre_non_zero.at<cv::Point>(0));
+		//cv::Point seed(nombre_non_zero[0].x, nombre_non_zero[0].y);
+		cv::bitwise_not(mask, mask);	//noir
+		// trouver la couleur maximale (la plus pâle qui n'est pas 0)
+		int buffer = 15;
+		cv::Mat rect;
+
+		if ((seed.x - (buffer / 2) > 0) && (seed.x + (buffer / 2) < mask.cols) && (seed.y - (buffer / 2) > 0) && (seed.y + (buffer / 2) < mask.rows)) {
+			cv::Rect rect_min_color = cv::Rect(seed.x - (buffer / 2), seed.y - (buffer / 2), buffer, buffer);
+			cv::findNonZero(mask(rect_min_color), rect);
+		}
+		else {
+
+			int buffer_y = buffer;
+			int buffer_x = buffer;
+
+			if ((mask.cols - seed.x) < buffer) {
+				buffer_y = (mask.cols - seed.x);
+			}
+
+			if ((mask.rows - seed.y) < buffer) {
+				buffer_x = (mask.rows - seed.y);
+			}
+
+			cv::Rect rect_min_color = cv::Rect(seed.x, seed.y, buffer_x, buffer_y);
+			cv::findNonZero(mask(rect_min_color), rect);
+		}	
+
+		cv::Point seed_min(rect.at<cv::Point>(0));
+
+		cv::floodFill(dst, mask, seed, cv::Scalar(128, 128, 128), 0, cv::Scalar(0), cv::Scalar(30), 8 | (fillValue << 8));
+		cv::bitwise_not(mask, mask);	//blanc
+		//nombre_non_zero.clear();
+		cv::findNonZero(mask(roi), nombre_non_zero);	// trouve les tâches blanches, blanc
+		n = cv::countNonZero(mask(roi));
+	}
 	
-		if (mask.at<char>(0, i) == 0) {
-			//cv::floodFill(dst, cv::Point(i, 0), 255, 0, 10, 10);
-			cv::floodFill(mask, cv::Point(i, 0), cv::Scalar(255, 255, 0));
-			//cv::floodFill(mask, dst, cv::Point(i, 0), cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
-		}
-		if (mask.at<char>(mask.rows - 1, i) == 0) {
-			//cv::floodFill(dst, cv::Point(i, mask.rows - 1), 255, 0, 10, 10);
-			cv::floodFill(mask, cv::Point(i, mask.rows - 1), cv::Scalar(255, 255, 0));
-			//cv::floodFill(mask, dst, cv::Point(i, mask.rows - 1), cv::Scalar(255, 255, 0), 0, cv::Scalar(), cv::Scalar(), 4 + cv::FLOODFILL_MASK_ONLY + (fillValue << 8));
-		}
-	}*/
-
-	//cv::floodFill(src, cv::Point(0, 0), cv::Scalar(255, 255, 0));
-
+	cv::cvtColor(dst, dst, cv::COLOR_GRAY2RGB);
 	return dst;
 }
 
