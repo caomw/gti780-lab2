@@ -54,7 +54,7 @@ private:
 	cv::Mat						DIBRRIGHT(cv::Mat left, cv::Mat depthMap, int* LUTD2D);
 
 	// This is where you build the Lookup table for depth -> disparity
-	int*						LUTDepthToDisparity();
+	int*						LUTDepthToDisparity(float height, float width, int bits, float kNear, float kFar, float tc, float distance);
 
 	// This is to speed up the display of the depth
 	BYTE*						LUTDepthToDisplay(int depthMinReliableDistance, int depthMaxReliableDistance);

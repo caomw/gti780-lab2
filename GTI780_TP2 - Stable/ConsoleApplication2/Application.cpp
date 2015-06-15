@@ -18,9 +18,16 @@ Application::Application(void) :
 	// create heap storage for the coorinate mapping from color to depth
     m_pDepthCoordinates = new DepthSpacePoint[cColorWidth * cColorHeight];
 
+	float H = 0.35; // mètres
+	float W = 0.5;	// mètres
+	int N = 8;	// bits
+	float knear = 0.1;
+	float kfar = 0.2;
+	float tc = 0.065;	// mètres
+	float D = 3 * H;	// mètres
 	// Create the LUT for depth to disparity
 	// Don't forget to pass the correct values here
-	m_pLUTD2D = LUTDepthToDisparity();
+	m_pLUTD2D = LUTDepthToDisparity(H, W, N, knear, kfar, tc, D);
 }
 
 
@@ -230,7 +237,7 @@ void Application::ProcessFrame(cv::Mat colorMat, int nColorWidth, int nColorHeig
 			cv::Mat mRight = DIBRRIGHT(colorConvert, depthResult, m_pLUTD2D);	// Apply your DIBR here and store the result as the right image
 
 			// ============================= Display your images here =====================================
-			DisplaySideBySide(depthResult, mRight);	// Display the images side by side
+			DisplaySideBySide(colorConvert, mRight);	// Display the images side by side
 		}
 	}
 }
@@ -282,7 +289,8 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 		int buffer = 15;
 		cv::Mat rect;
 
-		if ((seed.x - (buffer / 2) > 0) && (seed.x + (buffer / 2) < mask.cols) && (seed.y - (buffer / 2) > 0) && (seed.y + (buffer / 2) < mask.rows)) {
+		cv::bitwise_not(mask, mask);
+		if ((seed.x - (buffer / 2) > 0) && (seed.x + (buffer / 2) < mask(roi).cols) && (seed.y - (buffer / 2) > 0) && (seed.y + (buffer / 2) < mask(roi).rows)) {
 			cv::Rect rect_min_color = cv::Rect(seed.x - (buffer / 2), seed.y - (buffer / 2), buffer, buffer);
 			cv::findNonZero(mask(rect_min_color), rect);
 		}
@@ -291,21 +299,24 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 			int buffer_y = buffer;
 			int buffer_x = buffer;
 
-			if ((mask.cols - seed.x) < buffer) {
-				buffer_y = (mask.cols - seed.x);
+			if ((mask(roi).cols - seed.x) < buffer) {
+				buffer_x = (mask(roi).cols - seed.x);
 			}
 
-			if ((mask.rows - seed.y) < buffer) {
-				buffer_x = (mask.rows - seed.y);
+			if ((mask(roi).rows - seed.y) < buffer) {
+				buffer_y = (mask(roi).rows - seed.y);
 			}
 
 			cv::Rect rect_min_color = cv::Rect(seed.x, seed.y, buffer_x, buffer_y);
 			cv::findNonZero(mask(rect_min_color), rect);
 		}	
-
+		cv::bitwise_not(mask, mask);
+			
 		cv::Point seed_min(rect.at<cv::Point>(0));
 
-		cv::floodFill(dst, mask, seed, cv::Scalar(128, 128, 128), 0, cv::Scalar(0), cv::Scalar(30), 8 | (fillValue << 8));
+		uchar min_color = mask.at<uchar>(seed_min.x, seed_min.y);
+
+		cv::floodFill(dst, mask, seed, cv::Scalar(20), 0, cv::Scalar(0), cv::Scalar(30), 8 | (fillValue << 8));
 		cv::bitwise_not(mask, mask);	//blanc
 		//nombre_non_zero.clear();
 		cv::findNonZero(mask(roi), nombre_non_zero);	// trouve les tâches blanches, blanc
@@ -322,6 +333,7 @@ void Application::DisplaySideBySide(cv::Mat left, cv::Mat right)
 	cv::Mat catLeftRight = left; // Change this so your images left and right are displayed side by side
 	
 	// Display your images
+	cv::hconcat(left, right, catLeftRight);
 	cv::imshow("GTI780_TP2", catLeftRight);
 }
 
@@ -330,14 +342,37 @@ cv::Mat	Application::DIBRRIGHT(cv::Mat left, cv::Mat depthMap, int* LUTD2D)
 {
 	cv::Mat mRight = left; // Change this so your mRight correspond to left+pixelShift
 
+	for (int x = 0; x < left.rows; x++) {
+		for (int y = 0; y < left.cols; y++) {
+			uchar depth = depthMap.at<uchar>(x, y);
+
+			if ( ( (y + LUTD2D[depth]) > left.cols - 1) || ( (y + LUTD2D[depth]) < 0) ) {
+				mRight.at<cv::Vec3b>(x, y) = 0;
+			}
+			else {
+				mRight.at<cv::Vec3b>(x, y) = left.at<cv::Vec3b>(x, y + LUTD2D[depth]);
+			}
+		}
+	}
+
 	return mRight;
 }
 
 // Generate the lookup table here to convert depth into disparity
 // Don't forget to add the proper parameters!!!
-int* Application::LUTDepthToDisparity()
+int* Application::LUTDepthToDisparity(float height, float width, int bits, float kNear, float kFar, float tc, float distance)
 {
 	int* LUTD2D = new int[256];
+	// mapping: zp = W ( (m/2^N - 1) ( knear + kfar ) - kfar )
+	// disparité (mètres): p = tc * ( 1 - (D / D-zp) )
+	// disparité (pixels): ppix = (p * Npix) / W
+	for (int depth = 0; depth < 256; depth++) {
+
+		float zp = width*((depth / (pow(2, bits)) * (kNear + kFar) - kFar));
+		float p = tc * (1 - (distance / (distance - zp)));
+		float ppix = (p*1080) / width;
+		LUTD2D[depth] = ppix;
+	}
 	
 	return LUTD2D;
 }
