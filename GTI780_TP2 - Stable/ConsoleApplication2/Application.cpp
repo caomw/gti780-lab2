@@ -18,8 +18,8 @@ Application::Application(void) :
 	// create heap storage for the coorinate mapping from color to depth
     m_pDepthCoordinates = new DepthSpacePoint[cColorWidth * cColorHeight];
 
-	float H = 0.35; // mètres
-	float W = 0.5;	// mètres
+	float H = 0.80; // mètres
+	float W = 1.33;	// mètres
 	int N = 8;	// bits
 	float knear = 0.1;
 	float kfar = 0.2;
@@ -316,7 +316,7 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 
 		uchar min_color = mask.at<uchar>(seed_min.x, seed_min.y);
 
-		cv::floodFill(dst, mask, seed, cv::Scalar(20), 0, cv::Scalar(0), cv::Scalar(30), 8 | (fillValue << 8));
+		cv::floodFill(dst, mask, seed, cv::Scalar(30), 0, cv::Scalar(0), cv::Scalar(30), 8 | (fillValue << 8));
 		cv::bitwise_not(mask, mask);	//blanc
 		//nombre_non_zero.clear();
 		cv::findNonZero(mask(roi), nombre_non_zero);	// trouve les tâches blanches, blanc
@@ -330,7 +330,7 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 // Display two openCV Images side by side
 void Application::DisplaySideBySide(cv::Mat left, cv::Mat right)
 {
-	cv::Mat catLeftRight = left; // Change this so your images left and right are displayed side by side
+	cv::Mat catLeftRight; // Change this so your images left and right are displayed side by side
 	
 	// Display your images
 	cv::hconcat(left, right, catLeftRight);
@@ -340,14 +340,14 @@ void Application::DisplaySideBySide(cv::Mat left, cv::Mat right)
 // Apply the DIBR algorithm here using the Lookup table.
 cv::Mat	Application::DIBRRIGHT(cv::Mat left, cv::Mat depthMap, int* LUTD2D)
 {
-	cv::Mat mRight = left; // Change this so your mRight correspond to left+pixelShift
+	cv::Mat mRight = cv::Mat::zeros(left.rows, left.cols, CV_8UC3); // Change this so your mRight correspond to left+pixelShift
 
-	for (int x = 0; x < left.rows; x++) {
-		for (int y = 0; y < left.cols; y++) {
+	for (int x = 0; x < depthMap.rows - 1; x++) {
+		for (int y = 0; y < depthMap.cols - 1; y++) {
 			uchar depth = depthMap.at<uchar>(x, y);
 
-			if ( ( (y + LUTD2D[depth]) > left.cols - 1) || ( (y + LUTD2D[depth]) < 0) ) {
-				mRight.at<cv::Vec3b>(x, y) = 0;
+			if (((y + LUTD2D[depth]) > depthMap.cols - 1) || ((y + LUTD2D[depth]) < 0)) {
+				mRight.at<cv::Vec3b>(x, y) = left.at<cv::Vec3b>(x, y);
 			}
 			else {
 				mRight.at<cv::Vec3b>(x, y) = left.at<cv::Vec3b>(x, y + LUTD2D[depth]);
