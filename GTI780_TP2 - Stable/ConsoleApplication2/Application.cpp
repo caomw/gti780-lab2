@@ -21,8 +21,8 @@ Application::Application(void) :
 	float H = 0.80; // mètres
 	float W = 1.33;	// mètres
 	int N = 8;	// bits
-	float knear = 0.1;
-	float kfar = 0.2;
+	float knear = 0.20;
+	float kfar = 0.35;
 	float tc = 0.065;	// mètres
 	float D = 3 * H;	// mètres
 	// Create the LUT for depth to disparity
@@ -311,7 +311,7 @@ cv::Mat Application::ApplyFiltering(cv::Mat src)
 			cv::findNonZero(mask(rect_min_color), rect);
 		}	
 		cv::bitwise_not(mask, mask);
-			
+
 		cv::Point seed_min(rect.at<cv::Point>(0));
 
 		uchar min_color = mask.at<uchar>(seed_min.x, seed_min.y);

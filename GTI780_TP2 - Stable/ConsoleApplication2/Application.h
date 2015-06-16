@@ -13,8 +13,8 @@ class Application
 	// Change these values to modify the placement of the openCV window.
 	static const unsigned int	cWindowPosX = 0;
 	static const unsigned int	cWindowPosY = 0;
-	static const unsigned int	cWindowWidth = 1280;
-	static const unsigned int	cWindowHeight = 720;
+	static const unsigned int	cWindowWidth = 1920;
+	static const unsigned int	cWindowHeight = 1080;
 
 	static const int        cDepthWidth  = 512;
     static const int        cDepthHeight = 424;
